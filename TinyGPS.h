@@ -136,7 +136,6 @@ private:
   byte _sentence_type;
   byte _term_number;
   byte _term_offset;
-  bool _gps_data_good;
 
 #ifndef _GPS_NO_STATS
   // statistics

@@ -56,7 +56,6 @@ TinyGPS::TinyGPS()
   ,  _sentence_type(_GPS_SENTENCE_OTHER)
   ,  _term_number(0)
   ,  _term_offset(0)
-  ,  _gps_data_good(false)
 #ifndef _GPS_NO_STATS
   ,  _encoded_characters(0)
   ,  _good_sentences(0)
@@ -99,7 +98,6 @@ bool TinyGPS::encode(char c)
     _parity = 0;
     _sentence_type = _GPS_SENTENCE_OTHER;
     _is_checksum_term = false;
-    _gps_data_good = false;
     return valid_sentence;
   }
 
@@ -183,8 +181,6 @@ bool TinyGPS::term_complete()
     byte checksum = 16 * from_hex(_term[0]) + from_hex(_term[1]);
     if (checksum == _parity)
     {
-      if (_gps_data_good)
-      {
 #ifndef _GPS_NO_STATS
         ++_good_sentences;
 #endif
@@ -218,7 +214,6 @@ bool TinyGPS::term_complete()
           break;
       }
       return true;
-      }
     }
 
 #ifndef _GPS_NO_STATS
@@ -282,9 +277,6 @@ bool TinyGPS::term_complete()
       _new_time = parse_decimal();
       _new_time_fix = millis();
       break;
-    case COMBINE(_GPS_SENTENCE_GPRMC, 2): // GPRMC validity
-      _gps_data_good = _term[0] == 'A';
-      break;
     case COMBINE(_GPS_SENTENCE_GPRMC, 3): // Latitude
     case COMBINE(_GPS_SENTENCE_GPGGA, 2):
       _new_latitude = parse_degrees();
@@ -312,9 +304,6 @@ bool TinyGPS::term_complete()
       break;
     case COMBINE(_GPS_SENTENCE_GPRMC, 9): // Date (GPRMC)
       _new_date = gpsatol(_term);
-      break;
-    case COMBINE(_GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
-      _gps_data_good = _term[0] > '0';
       break;
     case COMBINE(_GPS_SENTENCE_GPGGA, 7): // Satellites used (GPGGA)
       _new_numsats = (unsigned char)atoi(_term);
