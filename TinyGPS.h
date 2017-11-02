@@ -3,7 +3,9 @@ TinyGPS - a small GPS library for Arduino providing basic NMEA parsing
 Based on work by and "distance_to" and "course_to" courtesy of Maarten Lamers.
 Suggestion to add satellites(), course_to(), and cardinal(), by Matt Monson.
 Precision improvements suggested by Wayne Holder.
-Copyright (C) 2008-2013 Mikal Hart
+Satellite Count Mod - by Brett Hagman http://www.roguerobotics.com/
+Satellite Count Mod merged with TinyGPS-13 by Robert Ciesnik
+Copyright (C) 2008-2017 Mikal Hart
 All rights reserved.
 
 This library is free software; you can redistribute it and/or
@@ -32,7 +34,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <stdlib.h>
 
-#define _GPS_VERSION 13 // software version of this library
+#define _GPS_VERSION 14 // software version of this library
 #define _GPS_MPH_PER_KNOT 1.15077945
 #define _GPS_MPS_PER_KNOT 0.51444444
 #define _GPS_KMPH_PER_KNOT 1.852
@@ -50,7 +52,7 @@ public:
     GPS_INVALID_FIX_TIME = 0xFFFFFFFF, GPS_INVALID_SATELLITES = 0xFF,
     GPS_INVALID_HDOP = 0xFFFFFFFF
   };
-
+  enum {GPS_FIX_NO_FIX = 1, GPS_FIX_2D = 2, GPS_FIX_3D = 3};
   static const float GPS_INVALID_F_ANGLE, GPS_INVALID_F_ALTITUDE, GPS_INVALID_F_SPEED;
 
   TinyGPS();
@@ -73,6 +75,14 @@ public:
   // speed in last full GPRMC sentence in 100ths of a knot
   inline unsigned long speed() { return _speed; }
 
+  // number of satellites in view (GPGSV sentence)
+  unsigned char satsinview() { return _satsinview; }
+
+  // number of satellites used for fix (GPGSA sentence)
+  unsigned char satsused() { return _satsused; }
+
+  // get the fix type
+  unsigned char fixtype() { return _fixtype; }
   // satellites used in last full GPGGA sentence
   inline unsigned short satellites() { return _numsats; }
 
@@ -100,7 +110,7 @@ public:
 #endif
 
 private:
-  enum {_GPS_SENTENCE_GPGGA, _GPS_SENTENCE_GPRMC, _GPS_SENTENCE_OTHER};
+  enum {_GPS_SENTENCE_GPGGA, _GPS_SENTENCE_GPRMC, _GPS_SENTENCE_GPGSV, _GPS_SENTENCE_GPGSA, _GPS_SENTENCE_OTHER};
 
   // properties
   unsigned long _time, _new_time;
@@ -110,6 +120,9 @@ private:
   long _altitude, _new_altitude;
   unsigned long  _speed, _new_speed;
   unsigned long  _course, _new_course;
+  unsigned char  _satsinview, _new_satsinview;
+  unsigned char  _satsused, _new_satsused;
+  unsigned char  _fixtype, _new_fixtype;  
   unsigned long  _hdop, _new_hdop;
   unsigned short _numsats, _new_numsats;
 

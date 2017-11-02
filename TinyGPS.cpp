@@ -3,7 +3,9 @@ TinyGPS - a small GPS library for Arduino providing basic NMEA parsing
 Based on work by and "distance_to" and "course_to" courtesy of Maarten Lamers.
 Suggestion to add satellites(), course_to(), and cardinal(), by Matt Monson.
 Precision improvements suggested by Wayne Holder.
-Copyright (C) 2008-2013 Mikal Hart
+Satellite Count Mod - by Brett Hagman http://www.roguerobotics.com/
+Satellite Count Mod merged into TinyGPS-13 by Robert Ciesnik
+Copyright (C) 2008-2017 Mikal Hart
 All rights reserved.
 
 This library is free software; you can redistribute it and/or
@@ -16,15 +18,23 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
 
+
 You should have received a copy of the GNU Lesser General Public
 License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
 #include "TinyGPS.h"
 
 #define _GPRMC_TERM   "GPRMC"
 #define _GPGGA_TERM   "GPGGA"
+#define _GPGSV_TERM   "GPGSV"
+#define _GPGSA_TERM   "GPGSA"
 
 TinyGPS::TinyGPS()
   :  _time(GPS_INVALID_TIME)
@@ -34,6 +44,9 @@ TinyGPS::TinyGPS()
   ,  _altitude(GPS_INVALID_ALTITUDE)
   ,  _speed(GPS_INVALID_SPEED)
   ,  _course(GPS_INVALID_ANGLE)
+  ,  _satsinview(0)
+  ,  _satsused(0)
+  ,  _fixtype(GPS_FIX_NO_FIX)  
   ,  _hdop(GPS_INVALID_HDOP)
   ,  _numsats(GPS_INVALID_SATELLITES)
   ,  _last_time_fix(GPS_INVALID_FIX_TIME)
@@ -196,9 +209,15 @@ bool TinyGPS::term_complete()
           _numsats   = _new_numsats;
           _hdop      = _new_hdop;
           break;
-        }
-
-        return true;
+        case _GPS_SENTENCE_GPGSV:
+          _satsinview = _new_satsinview;
+          break;
+        case _GPS_SENTENCE_GPGSA:
+          _satsused = _new_satsused;
+          _fixtype = _new_fixtype;
+          break;
+      }
+      return true;
       }
     }
 
@@ -216,12 +235,46 @@ bool TinyGPS::term_complete()
       _sentence_type = _GPS_SENTENCE_GPRMC;
     else if (!gpsstrcmp(_term, _GPGGA_TERM))
       _sentence_type = _GPS_SENTENCE_GPGGA;
+    else if (!gpsstrcmp(_term, _GPGSV_TERM))
+    {
+      _sentence_type = _GPS_SENTENCE_GPGSV;
+    }
+    else if (!gpsstrcmp(_term, _GPGSA_TERM))
+    {
+      _sentence_type = _GPS_SENTENCE_GPGSA;
+      _new_satsused = 0;
+    }
     else
       _sentence_type = _GPS_SENTENCE_OTHER;
     return false;
   }
 
-  if (_sentence_type != _GPS_SENTENCE_OTHER && _term[0])
+  if (_sentence_type == _GPS_SENTENCE_GPGSV)
+
+  {
+	if (_term_number == 3 && _term[0])
+    {
+      // we've got our number of sats
+      // NOTE: we will more than likely hit this a few times in a row, because
+      // there are usually multiple GPGSV sentences to describe all of the sats
+      _new_satsinview = (unsigned char) gpsatol(_term);
+    }
+  }
+  else if (_sentence_type == _GPS_SENTENCE_GPGSA)
+  {
+    if (_term_number == 2 && _term[0])  // Fix type
+    {
+      _new_fixtype = (unsigned char) gpsatol(_term);
+    }
+    else if (_term_number >= 3 && _term_number <= 14 && _term[0]) // Count our sats used
+    {
+      _new_satsused++;
+    }
+//    if (_term_number == 15)  // PDOP
+//    if (_term_number == 16)  // HDOP
+//    if (_term_number == 17)  // VDOP
+  }   
+  else if (_sentence_type != _GPS_SENTENCE_OTHER && _term[0])
     switch(COMBINE(_sentence_type, _term_number))
   {
     case COMBINE(_GPS_SENTENCE_GPRMC, 1): // Time in both sentences
